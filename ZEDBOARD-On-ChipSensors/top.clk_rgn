@@ -1,0 +1,105 @@
+Release 14.7 - reportgen P.20131013 (nt64)
+Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
+
+Tue Oct 19 16:47:54 2021
+
+SUMMARY
+-------
+There are 6 clock regions:
+
+Clock Reports by Clock Regions
+------------------------------
+
+Clock Region X0Y0:
+------------------
+Number of global clocks in this region: 4
+List of global clocks in this region:
+   clk1 driven by BUFGCTRL_X0Y2 
+   clk0 driven by BUFGCTRL_X0Y1 
+   clk2 driven by BUFGCTRL_X0Y31 
+   clock/CLKFBIN1 driven by BUFGCTRL_X0Y3 
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 1
+List of local clocks in this region:
+   clk_IBUF driven by IOB_X0Y26 
+
+Summary of components used in this region:
+
+Number of     FIFO18E1:     1 used out of    30     3%
+Number of   IDELAYCTRL:     1 used out of     1   100%
+Number of     IDELAYE2:     1 used out of    50     2%
+Number of       IOB33M:     3 used out of    24    12%
+Number of       IOB33S:     1 used out of    24     4%
+Number of   MMCME2_ADV:     1 used out of     1   100%
+Number of     RAMB18E1:     2 used out of    30     6%
+Number of       SLICEL:   500 used out of  1500    33%
+Number of       SLICEM:   403 used out of  1000    40%
+
+Clock Region X1Y0:
+------------------
+Number of global clocks in this region: 2
+List of global clocks in this region:
+   clk1 driven by BUFGCTRL_X0Y2 
+   clk_IBUF_BUFG driven by BUFGCTRL_X0Y0 
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 0
+
+Summary of components used in this region:
+
+Number of        IOB33:     1 used out of     2    50%
+Number of       IOB33M:     2 used out of    24     8%
+Number of       IOB33S:     1 used out of    24     4%
+Number of       SLICEL:     5 used out of  2350     1%
+Number of       SLICEM:    15 used out of   850     1%
+
+Clock Region X0Y1:
+------------------
+Number of global clocks in this region: 0
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 0
+
+Summary of components used in this region:
+
+
+Clock Region X1Y1:
+------------------
+Number of global clocks in this region: 1
+List of global clocks in this region:
+   clk0 driven by BUFGCTRL_X0Y1 
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 0
+
+Summary of components used in this region:
+
+Number of       SLICEM:     1 used out of   850     1%
+
+Clock Region X0Y2:
+------------------
+Number of global clocks in this region: 0
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 0
+
+Summary of components used in this region:
+
+
+Clock Region X1Y2:
+------------------
+Number of global clocks in this region: 0
+
+Number of regional clocks in this region: 0
+
+Number of local clocks in this region: 0
+
+Summary of components used in this region:
+
+
