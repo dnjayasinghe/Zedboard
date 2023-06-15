@@ -247,10 +247,29 @@ end
 /////////////////////////////
 ///  AES and Main FSM 	  ///
 /////////////////////////////
-localparam	MAIN_RESET	= 8'h00,
-		MAIN_DELAY_WAIT	= 8'h01,
-		MAIN_DELAY_WAIT	= 8'h01,
-		MAIN_DELAY_WAIT	= 8'h01,
+localparam	MAIN_RESET		= 8'h00,
+		MAIN_DELAY_WAIT		= 8'h01,
+		MAIN_DELAY_SET		= 8'h02,
+		MAIN_DELAY_WRAPUP	= 8'h03,
+		MAIN_AES_RESET		= 8'h04,
+		MAIN_AES_SET_KEY	= 8'h05,
+		MAIN_AES_SET_PT		= 8'h06,
+		MAIN_AES_ENCRYPT	= 8'h07,
+		MAIN_AES_WAIT		= 8'h08,
+		MAIN_PT_SEND		= 8'h09,
+		MAIN_PT_WAIT		= 8'h0A,
+		MAIN_KEY_SEND		= 8'h0B,
+		MAIN_KEY_WAIT		= 8'h0C,
+		MAIN_CT_SEND		= 8'h0D,
+		MAIN_CT_WAIT		= 8'h0E,
+		MAIN_SEN_SEND		= 8'h0F,
+		MAIN_SEN_WAIT		= 8'h10,	
+		MAIN_SEN_DELAY		= 8'h11,	
+		MAIN_WRAPUP		= 8'h12;	
+			
+		
+
+	
 		MAIN_DELAY_WAIT	= 8'h01,
 	
 
