@@ -29,8 +29,9 @@ module top(
     );
 
 parameter CounterSize=31;
-parameter AES_COUNT = 3;
-parameter adsize=160;
+parameter SAMPLESTOCOLLECT=2048;
+parameter SAMPLESTOTRANSFER=2048;
+
 
 reg [9:0] counter;
 reg [CounterSize:0] counter1=0;
@@ -40,8 +41,18 @@ wire clk0, clk1, clk5, clk0t, clk3t, clk4t, clk2, clk3, clk4, clk5x;
 wire roClk;
 wire [35:0] control0;		
 
+//////////////////////////
+///   FSMs and States  ///
+/////////////////////////
+
 reg  [9:0] fsm=0;
 reg  [9:0] fsm1=0;
+
+
+//////////////////////////
+///   Regs and Wires  ///
+/////////////////////////
+
 reg  [127:0] Kin, Din;
 wire [127:0] Dout;
 reg Krdy, Drdy, EncDec, RSTn, EN;
@@ -53,7 +64,7 @@ reg  [7:0] TXdata;
 wire  [7:0] RXdata;
 
 reg [7:0] data1   [2047:0]; 
-reg [7:0] data2   [2047:0]; 
+reg [7:0] data2   [SAMPLESTOCOLLECT-1:0]; 
 reg [7:0] data3   [1023:0]; 
 
 reg [7:0] dataCt   [15:0]; 
@@ -64,7 +75,7 @@ reg [10:0] addr2;
 reg [2:0] encCounter;
 reg [9:0] total, total_old;
 reg [7:0] senData  [3:0]; 
-reg[adsize-1:0] adjust;
+
 reg [4:0] delay=15;
 wire [4:0] Cdelay;
 
@@ -74,73 +85,49 @@ reg start, trig, AESResetn, one, adj, adjEN;
 reg  [7:0]  count;
 
 
-reg [63:0] A, B;
-wire [63:0] Awire, Bwire;
+assign led	=counter1[27:25];
+assign HB 	=counter2[28];
+reg busy;
+assign SensorBusy = busy;
+assign PWR=1;
+
+//////////////////////////
+///   Clock and UARTs  ///
+/////////////////////////
 
 clock clock(clk, clk0, clk1, clk2, clk3, clk4, clk5t);
 uart_tx uartTX(.i_Clock(clk1), .i_Tx_DV(transmitReg), .i_Tx_Byte(TXdata), .o_Tx_Active(txActive), .o_Tx_Serial(tx), .o_Tx_Done(TXDone) );		
 uart_rx uartRX(.i_Clock(clk1), .i_Rx_Serial(rx), .o_Rx_DV(rxReady), .o_Rx_Byte(RXdata) );		
 
-///adjust adj0 (.count(count), .en(adjEN), .clk(clk1), .rstn(AESResetn), .CorseDelay(Cdelay), .FineDelay(), .err(err), .done(done));
-
-wire [255:0] out, out2, out3;		
-reg [255:0] outReg, outReg2, outReg3;		
-wire[7:0] processedOut, processedOut2, processedOut3;
+//////////////////////////
+///   On-chip Sensor   ///
+/////////////////////////
 parameter regsize =511;
+parameter AES_COUNT = 3;
+parameter ADSIZE=160;
 
+wire 	[ADSIZE-1:0] out;		
+reg 	[ADSIZE-1:0] outReg;		
+wire	[7:0] processedOut;
+reg	[ADSIZE-1:0] adjust;
 
-assign Awire = B;
-assign Bwire = {delClk,3'b000};
-//
-//  input clk;
-//  input [63 : 0] a;
-//  input [63 : 0] b;
-//  output [127 : 0] p;
-
-///multiplier mul(Awire, Bwire, out);
-
-
-
-//delay del1 (clk0, delClk);
-//autoAdder  rca(A, B, clk0, 1, delClk, out);
-//LUT_TDC lt0 (.clk(clk0), .clkdel(clk0), .select(encCounter), .out(out));
-//LUT_TDC1 lt0 (.clk(clk3t), .clkdel(clk4t), .select(encCounter), .out(out));
-//AddSub as(.a(A), .b(B), .clk(clk0), .ce(1'b1), .c_in(clk5t), .s(out)); //clk0t
-//
-//  input clk;
-//  input c_in;
-//  input ce;
-//  input [31 : 0] a;
-//  input [31 : 0] b;
-//  output [31 : 0] s;
-
-//tdc_orig tp (clk0, out);
-tdc_top tp (clk0, out);
-
-//tdc_cou tp2 (clk5x, SensorBusy, out3);
-
+//tdc_top tp (clk0, out);
 tdc_decode tdc_decode(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg), .coded_o(processedOut)); 
-//tdc_decode tdc_decode2(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg2), .coded_o(processedOut2)); 
-//tdc_decode tdc_decode3(.clk(clk5t), .rst(AESResetn), .chainvalue_i(outReg3), .coded_o(processedOut3)); 
 
-//BUFG  u3 (.I(clk5x),   .O(clk5));
 
-//////////---------------------
-// function
-/////////----------------------
+
+//////////////////////////
+///   AES LOOP        ///
+/////////////////////////
 wire [127:0] DoutTemp [AES_COUNT-1:0] ;
-//wire [127:0] DoutTemp [AES_COUNT-1:0];
 wire  [AES_COUNT-1:0] DvldTemp;
 
-//assign Dout = Dout0 & Dout1 & Dout2 & Dout3;
 assign Dout = DoutTemp[0] &  DoutTemp[1] &  DoutTemp[2];
 assign Dvld = &DvldTemp;
-//assign Dvld= Dvld0 & Dvld1 & Dvld2 & Dvld3;//
-//assign Dvld= Dvld0 & Dvld1 & Dvld2 & Dvld3 & Dvld4 & Dvld5 & Dvld6 & Dvld7;
 
 
 
-    genvar i;  genvar j;
+ genvar i;
 	 generate
         for(i = 0; i < AES_COUNT; i = i+1) 
 		  begin:gen_code_label
@@ -148,17 +135,7 @@ assign Dvld = &DvldTemp;
 			//AES_Composite_enc aes_tinyi (.Kin(Kin), .Din(Din), .Dout(DoutTemp[i]), .Krdy(Krdy), .Drdy1(Drdy), .EncDec(1'b0), .Kvld(), .Dvld(DvldTemp[i]), .EN(EN), .BSY(), .CLK(clk1), .RSTn(AESResetn));
 	end
 	endgenerate
-
-
-//      (Kin, Din, Dout, Krdy, Drdy,EncDec, Kvld, Dvld, EN, BSY, CLK,RSTn);
-assign led	=counter1[27:25];
-assign HB 	=counter2[28];
-
-
-reg busy;
-assign SensorBusy = busy;
-assign PWR=1;
-
+	
 
 //(* IODELAY_LOC = "X1Y0" *)
 IDELAYE2 #(
@@ -228,25 +205,14 @@ always @(posedge clk) begin
 		counter2 <= counter2+1;
 end
 
-function [159:0] S;
-input [7:0] number;
-
-case (number)
-0:S= 160'b0000;				
-1:S= 160'b0001;				     2:S= 160'b0011;										3:S= 160'b0111; 							4:S= 160'b1111;
-5:S= 160'b0001_1111;	   		  6:S= 160'b0011_1111;								7:S= 160'b0111_0111;						8:S= 160'b1111_1111;
-9:S= 160'b0001_1111_1111; 		 10:S= 160'b0011_0000_0000;						10:S= 160'b0111_1111_1111;				11:S= 16'b1111_1111_1111;
-12:S= 16'b0001_1111_1111_1111; 13:S= 160'b0011_1111_1111_1111;  				14:S= 160'b0111_1111_1111_1111;		15:S=160'b1111_1111_1111_1111;
-31:S= 160'b0101_0111_1111_1111_0000; 32:S= 160'b0111_0111_1111_1111_000011; 
-default: S = 160'b1111_1111_1111_0000;
-endcase
-endfunction
+///////////////////////////////////
+///  Sample Onchip sensor FSM   ///
+///////////////////////////////////
 
 
 always @(posedge clk0) begin
    
 	if(Drdy==1 & fsm1==0) begin
-		   data1[addr2] <= 254;//processedOut;
 		   data2[addr2] <= 250;//processedOut;
 			//dataRaw[addr2]  <= out;
 			outReg <= out;
@@ -257,22 +223,16 @@ always @(posedge clk0) begin
 			
 	end
 	else if(fsm1==1) begin
-	      outReg <= out;    
+	      outReg <= addr2;// out;    
 			
 			if(Dvld==1) begin
-				data1[addr2] <= 255;
 				data2[addr2] <= 255;
 			end
 			else begin
-				//data1[addr2] <= out[7:0];//processedOut;
-				//data1[addr2] <= out[15:8];//processedOut;
-				//data1[addr2] <= out[37:32];//processedOut;
 				data2[addr2] <=  processedOut;
-				//data1[addr2] <= out[63:56];//processedOut;
 			end 
-			//dataRaw[addr2]  <= out;
 			addr2 <= addr2 +1;
-			if(addr2==2047) begin
+			if(addr2==SAMPLESTOCOLLECT) begin
 				fsm1<=0;
 				addr2 <=0;	
 			end
@@ -280,14 +240,13 @@ always @(posedge clk0) begin
 
 end
 
+
+/////////////////////////////
+///  AES and Main FSM 	  ///
+/////////////////////////////
+
+
 always @(posedge clk1) begin
-//Kin  <= {Kin[126:0], Kin[127] ~^ Kin[0]};
-		
-		//if (RXdata==255) begin
-		//	A= 32'hFFFFFFFF;
-		//	B= 32'hFFFFFFFF;
-		//end
-		
 		
 		if (fsm==0) begin
 		     
@@ -321,9 +280,7 @@ always @(posedge clk1) begin
 			CE <=0;
 			fsm <=2;
 			adj <=1;
-
-			//total <= senData[0] +  senData[1] + senData[2] + senData[3];
-			
+	
 		end
 		else if (fsm==2) begin
 			
@@ -340,13 +297,9 @@ always @(posedge clk1) begin
 				//end
 		end
 		else if (fsm==3 ) begin
-			A= {RXdata,RXdata,RXdata,RXdata,RXdata,RXdata,RXdata,00000010};
-		   B= {~RXdata,~RXdata,~RXdata,~RXdata,~RXdata,~RXdata,~RXdata,~RXdata};
 			EN		<=1;
 			Krdy <=1;
-			//counter1<= counter1+1;
 			Kin  <=128'h000102030405060708090a0b0c0d0ef0;
-			//     128'h00ff00ff00ff00ff00ff00ff00ff00ff
 			fsm<=4;
 					
 		end
@@ -497,27 +450,15 @@ always @(posedge clk1) begin
 			if(addr1==16) begin
 				fsm<=20;
 				addr1 <=0;
-			//	outReg <= dataraw[0];
-				end
-			else
+			end
+			else  begin
 				fsm<=14;
-		
+			end	
 		end
-	
-	
 		else if(fsm==20) begin  // key rdy
 			transmitReg <=1;
 			fsm<=21;
-			//if(RXdata==0)
-			//	TXdata<=data1[addr1];
-			//else
 				TXdata<=data2[addr1];
-			//addr1 <= addr1+1;
-			//outReg <= dataRaw[addr1];
-			if(addr1 > 127 &&  addr1 < 256) begin
-					count <=  count + data1[addr1];
-				end 
-			
 		end
 		else if(fsm==21) begin  // key rdy
 			transmitReg <=0;
@@ -548,213 +489,8 @@ always @(posedge clk1) begin
 					adjEN   <=1;
 				end
 		end
-	//	//////////////////////////////////////////
-	// FSM will not execute below this line
-	//////////////////////////////////////////////////////// 
-		else if(fsm==30) begin  // key rdy
-			transmitReg <=1;
-			fsm<=31;
-			TXdata<=data2[addr1];
-			//addr1 <= addr1+1;
-			//outReg <= dataRaw[addr1];
-		end
-		else if(fsm==31) begin  // key rdy
-			transmitReg <=0;
-			fsm<=32;
-		
-		end
-		
-		else if(fsm==32 & TXDone==1) begin  // key rdy
-			
-			if(addr1==1023) begin
-				fsm<=40;
-				counter1 <=0;
-				addr1<=0;
-				total <=0;
-				total_old <=total;
-			end
-			else begin
-				fsm<=30;
-				addr1 <= addr1+1;
-		   end
-		end
-		
-			
-		else if(fsm==40) begin  // key rdy
-			transmitReg <=1;
-			fsm<=41;
-			TXdata<=data3[addr1];
-				if(addr1 > 127 &&  addr1 < 256) begin
-					count <=  count + data3[addr1];
-				end  
-			
-			//addr1 <= addr1+1;
-			//outReg <= dataRaw[addr1];
-		end
-		else if(fsm==41) begin  // key rdy
-			transmitReg <=0;
-			fsm<=42;
-		
-		end
-		
-		else if(fsm==42 & TXDone==1) begin  // key rdy
-			
-			if(addr1==1023) begin
-				fsm<=00;
-				counter1 <=0;
-			end
-			else begin
-				fsm<=40;
-				addr1 <= addr1+1;
-		   end
-		end
-		
-		else if (fsm==100) begin
-		
-				counter1<= counter1+1;
-				if(counter1[13]==1) begin
-				   fsm <=0;
-					counter1<=0;
-				end
-		end
+	
 		
 end
-
-//always @(posedge clk0) begin
-//		
-//		//counter1<=counter1+1;
-//		
-//		//if(counter1[CounterSize] ==0)
-//		//	counter1<=counter1+ 1;
-//		//else
-//		//	counter1 <=0;
-//		
-//		if(fsm==0) begin
-//		//if(counter1[CounterSize]==1) begin
-//		Kin <=128'h0;
-//		Din <=128'h0;	
-//		EncDec <=0;
-//		EN <=0;
-//		AESResetn  <=0;
-//		transmitReg <=0;
-//		addr1  <=0;
-//		trig   <=0;
-//		
-//		counter1 <= counter1 +1;
-//				if(counter1[27]==1)
-//					fsm<=1;
-//		end
-//		
-////		else if(fsm==0) begin  // key rdy
-////		EN <=1;
-////		fsm<=1;
-////		end
-//		else if(fsm==1) begin  // key rdy
-//		Kin <=128'hfffff;
-//		EN <=1;
-//		Krdy <=1;
-//		fsm<=2;
-//		R  <=1;
-//		CE <=0;
-//		trig   <=0;
-//		AESResetn  <=1;
-//		//addr1 <= addr1+1;
-//		//data1[addr1] <= jrcToHex(Q); 
-//		
-//		end
-//		
-//		else if(fsm==2 & Kvld==1) begin  // key rdy
-//		R  <=0;
-//		CE <=1;
-//		Din <=Dout;
-//		Krdy <=0;0
-//		Drdy <=1;
-//		fsm<=3;
-//		addr1 <= addr1+1;
-//		data1[addr1] <= 2;//jrcToHex(Q);
-//		trig   <=1;
-//		counter1 <=0;
-//		end
-//		
-//		else if(fsm==3) begin  // key rdy
-//		trig <=0;
-//		addr1 <= addr1+1;
-//		data1[addr1] <= 3;//jrcToHex(Q);
-//		if (BSY==1) begin
-//			Drdy <=0;
-//			fsm<=4;
-//			end
-//		
-//		end
-//		
-//		else if(fsm==4) begin
-//			addr1 <= addr1+1;
-//			data1[addr1] <= 4;//jrcToHex(Q);
-//			if (Dvld==1) begin
-//				//Drdy <=0;
-//				fsm<=5;
-//				CE<=0;
-//			end
-//		
-//		end
-//		
-//		else if(fsm==5) begin  // key rdy0
-//		//Drdy <=0;
-//		//Krdy <=0;
-//		//EN   <=0;
-//		//CE <=0;
-//		fsm<=6;
-//		addr1 <= 0;
-//		data1[addr1] <= 5;//jrcToHex(Q);
-//		
-//		end
-//			
-//		else if(fsm==6) begin  // key rdy
-//		transmitReg <=1;
-//		fsm<=7;
-//		TXdata<=data1[addr1];
-//		addr1 <= addr1+1;
-//		
-//		end
-//	
-//		else if(fsm==7) begin  // key rdy
-//		transmitReg <=0;
-//		fsm<=8;
-//		
-//		end
-//		
-//		else if(fsm==8 & TXDone==1) begin  // key rdy
-//		
-//		if(addr1==1024)
-//			fsm<=9;
-//		else
-//			fsm<=6;
-//		
-//		end
-//		
-//		else if(fsm==9) begin  // key rdy
-//				
-//				counter1 <= counter1 +1;
-//				if(counter1[27]==1)
-//					fsm<=10;
-//				
-//		end
-//		
-//		else if(fsm==10) begin  // key rdy
-//				counter <=0;
-//				fsm<=2;
-//				R<=1;
-//				addr1  <=0;
-//		end
-//		
-//		
-//		// transfer the data
-//		
-//		end
-//
-//
-
-
-
 
 endmodule
