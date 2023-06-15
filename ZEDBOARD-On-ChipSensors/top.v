@@ -208,7 +208,10 @@ end
 ///////////////////////////////////
 ///  Sample Onchip sensor FSM   ///
 ///////////////////////////////////
-
+localparam 	SEN_RESET 	= 8'h00,
+		SEN_WAIT  	= 8'h01,
+		SEN_CAPTURE	= 8'h02,
+		SEN_WRAP_UP	= 8'h03;
 
 always @(posedge clk0) begin
    
@@ -244,7 +247,12 @@ end
 /////////////////////////////
 ///  AES and Main FSM 	  ///
 /////////////////////////////
-
+localparam	MAIN_RESET	= 8'h00,
+		MAIN_DELAY_WAIT	= 8'h01,
+		MAIN_DELAY_WAIT	= 8'h01,
+		MAIN_DELAY_WAIT	= 8'h01,
+		MAIN_DELAY_WAIT	= 8'h01,
+	
 
 always @(posedge clk1) begin
 		
