@@ -215,18 +215,17 @@ localparam 	SEN_RESET 	= 8'h00,
 
 always @(posedge clk0) begin
    
-	if(Drdy==1 & fsm1==0) begin
-		   data2[addr2] <= 250;//processedOut;
-			//dataRaw[addr2]  <= out;
-			outReg <= out;
-			//addr2 <= 0;
-			fsm1  <=1;
-			addr2 <= addr2 +1;
-			
+	if(fsm1==SEN_WAIT) begin
+		   data2[addr2] 	<= 250;//processedOut;
+			outReg 			<= out;
+			addr2 			<= 0;
+			if(Drdy ==1)
+				fsm1  		<=SEN_CAPTURE;	
 			
 	end
-	else if(fsm1==1) begin
-	      outReg <= addr2;// out;    
+	else if(fsm1==SEN_CAPTURE) begin
+	      outReg 			<= addr2;// out;    
+			addr2 			<= addr2 +1;
 			
 			if(Dvld==1) begin
 				data2[addr2] <= 255;
@@ -234,13 +233,15 @@ always @(posedge clk0) begin
 			else begin
 				data2[addr2] <=  processedOut;
 			end 
-			addr2 <= addr2 +1;
+			
 			if(addr2==SAMPLESTOCOLLECT) begin
 				fsm1<=0;
-				addr2 <=0;	
+					
 			end
 	end
-
+	else if(fsm1==SEN_WRAP_UP) begin
+			addr2 <=0;
+	end
 end
 
 
@@ -266,12 +267,7 @@ localparam	MAIN_RESET		= 8'h00,
 		MAIN_SEN_WAIT		= 8'h10,	
 		MAIN_SEN_DELAY		= 8'h11,	
 		MAIN_WRAPUP		= 8'h12;	
-			
 		
-
-	
-		MAIN_DELAY_WAIT	= 8'h01,
-	
 
 always @(posedge clk1) begin
 		
@@ -433,16 +429,13 @@ always @(posedge clk1) begin
 				fsm<=7;
 		
 		end
-
-	
-	
 		else if(fsm==11) begin 
 			transmitReg <=1;
 			fsm<=12;
 			TXdata<=dataKey[addr1];
 			addr1 <= addr1+1;
 		end
-	else if(fsm==12) begin  // key rdy
+	  else if(fsm==12) begin  // key rdy
 			transmitReg <=0;
 			fsm<=13;
 		
