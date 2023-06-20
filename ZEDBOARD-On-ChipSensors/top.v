@@ -431,7 +431,7 @@ always @(posedge clk1) begin
 		end
 		else if(MAIN_FSM==MAIN_SEN_SEND) begin  // key rdy
 			transmitReg <=1;
-			TXdata<=data2[addr1];
+			TXdata<=addr1;//data2[addr1];
 			
 			MAIN_FSM <= MAIN_SEN_WAIT;
 		end
