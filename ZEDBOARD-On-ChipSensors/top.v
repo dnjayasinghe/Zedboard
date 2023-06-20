@@ -42,11 +42,11 @@ wire roClk;
 wire [35:0] control0;		
 
 //////////////////////////
-///   FSMs and States  ///
+///   FSMs				  ///
 /////////////////////////
 
-reg  [9:0] fsm=0;
-reg  [9:0] fsm1=0;
+reg  [9:0] MAIN_FSM=0;
+reg  [9:0] SEN_FSM=0;
 
 
 //////////////////////////
@@ -65,7 +65,6 @@ wire  [7:0] RXdata;
 
 reg [7:0] data1   [2047:0]; 
 reg [7:0] data2   [SAMPLESTOCOLLECT-1:0]; 
-reg [7:0] data3   [1023:0]; 
 
 reg [7:0] dataCt   [15:0]; 
 reg [7:0] dataIn   [15:0]; 
@@ -137,70 +136,6 @@ assign Dvld = &DvldTemp;
 	endgenerate
 	
 
-//(* IODELAY_LOC = "X1Y0" *)
-IDELAYE2 #(
-.CINVCTRL_SEL("FALSE"), // Enable dynamic clock inversion (FALSE, TRUE)
-.DELAY_SRC("DATAIN"), // Delay input (IDATAIN, DATAIN)
-.HIGH_PERFORMANCE_MODE("TRUE"), // Reduced jitter ("TRUE"), Reduced power ("FALSE")
-.IDELAY_TYPE("VAR_LOAD"), // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
-.IDELAY_VALUE(0), // Input delay tap setting (0-31)
-.PIPE_SEL("TRUE"), // Select pipelined mode, FALSE, TRUE
-.REFCLK_FREQUENCY(200.0), // IDELAYCTRL clock input frequency in MHz (190.0-210.0).
-.SIGNAL_PATTERN("CLOCK") // DATA, CLOCK input signal
-)
-IDELAYE2_inst0 (
-.CNTVALUEOUT(), // 5-bit output: Counter value output
-.DATAOUT(clk3t), // 1-bit output: Delayed data output
-.C(clk3), // 1-bit input: Clock input  refclk
-.CE(1'b0), // 1-bit input: Active high enable increment/decrement input
-.CINVCTRL(1'b0), // 1-bit input: Dynamic clock inversion input
-.CNTVALUEIN(dataIn[14]), // 5-bit input: Counter value input
-.DATAIN(clk3), // 1-bit input: Internal delay data input
-.IDATAIN(), // 1-bit input: Data input from the I/O
-.INC(1'b0), // 1-bit input: Increment / Decrement tap delay input
-.LD(1'b1), // 1-bit input: Load IDELAY_VALUE input
-.LDPIPEEN(1'b1), // 1-bit input: Enable PIPELINE register to load data input
-.REGRST(1'b0) // 1-bit input: Active-high reset tap-delay input
-);
-
-
-
-//(* IODELAY_LOC = "X1Y0" *)
-IDELAYE2 #(
-.CINVCTRL_SEL("FALSE"), // Enable dynamic clock inversion (FALSE, TRUE)
-.DELAY_SRC("DATAIN"), // Delay input (IDATAIN, DATAIN)
-.HIGH_PERFORMANCE_MODE("TRUE"), // Reduced jitter ("TRUE"), Reduced power ("FALSE")
-.IDELAY_TYPE("VAR_LOAD"), // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
-.IDELAY_VALUE(7), // Input delay tap setting (0-31)
-.PIPE_SEL("TRUE"), // Select pipelined mode, FALSE, TRUE
-.REFCLK_FREQUENCY(200.0), // IDELAYCTRL clock input frequency in MHz (190.0-210.0).
-.SIGNAL_PATTERN("CLOCK") // DATA, CLOCK input signal
-)
-IDELAYE2_inst1 (
-.CNTVALUEOUT(), // 5-bit output: Counter value output
-.DATAOUT(clk4t), // 1-bit output: Delayed data output
-.C(clk4), // 1-bit input: Clock input  refclk
-.CE(1'b0), // 1-bit input: Active high enable increment/decrement input
-.CINVCTRL(1'b0), // 1-bit input: Dynamic clock inversion input
-.CNTVALUEIN(dataIn[15]), // 5-bit input: Counter value input
-.DATAIN(clk4), // 1-bit input: Internal delay data input
-.IDATAIN(), // 1-bit input: Data input from the I/O
-.INC(1'b0), // 1-bit input: Increment / Decrement tap delay input
-.LD(1'b1), // 1-bit input: Load IDELAY_VALUE input
-.LDPIPEEN(1'b1), // 1-bit input: Enable PIPELINE register to load data input
-.REGRST(1'b0) // 1-bit input: Active-high reset tap-delay input
-);
-
-
-
-//(*LOC="IDELAY_X1Y1"*)
-//(* IODELAY_LOC = "X1Y0" *)
-IDELAYCTRL IDELAYCTRL_inst (
-.RDY(), // 1-bit output: Ready output
-.REFCLK(clk2), // 1-bit input: Reference clock input  //CLKOUTREF
-.RST(1'b0) // 1-bit input: Active high reset input
-);
-
 always @(posedge clk) begin
 		counter2 <= counter2+1;
 end
@@ -215,32 +150,37 @@ localparam 	SEN_RESET 	= 8'h00,
 
 always @(posedge clk0) begin
    
-	if(fsm1==SEN_WAIT) begin
+	if(SEN_FSM==SEN_RESET) begin
+		SEN_FSM 		<=SEN_WAIT;	
+	
+	end
+	else if(SEN_FSM==SEN_WAIT) begin
 		   data2[addr2] 	<= 250;//processedOut;
 			outReg 			<= out;
 			addr2 			<= 0;
 			if(Drdy ==1)
-				fsm1  		<=SEN_CAPTURE;	
+				SEN_FSM  	<=SEN_CAPTURE;	
 			
 	end
-	else if(fsm1==SEN_CAPTURE) begin
+	else if(SEN_FSM==SEN_CAPTURE) begin
 	      outReg 			<= addr2;// out;    
 			addr2 			<= addr2 +1;
 			
-			if(Dvld==1) begin
-				data2[addr2] <= 255;
-			end
-			else begin
+			//if(Dvld==1) begin
+			//	data2[addr2] <= 255;
+			//end
+			//else begin
 				data2[addr2] <=  processedOut;
-			end 
+			//end 
 			
-			if(addr2==SAMPLESTOCOLLECT) begin
-				fsm1<=0;
+			if(addr2==SAMPLESTOCOLLECT-1) begin
+				SEN_FSM	<=  SEN_WRAP_UP;
 					
 			end
 	end
-	else if(fsm1==SEN_WRAP_UP) begin
+	else if(SEN_FSM==SEN_WRAP_UP) begin
 			addr2 <=0;
+			SEN_FSM <= SEN_WAIT;
 	end
 end
 
@@ -248,38 +188,43 @@ end
 /////////////////////////////
 ///  AES and Main FSM 	  ///
 /////////////////////////////
-localparam	MAIN_RESET		= 8'h00,
-		MAIN_DELAY_WAIT		= 8'h01,
+localparam	MAIN_RESET	= 8'h00,
+		MAIN_DELAY_WAIT	= 8'h01,
 		MAIN_DELAY_SET		= 8'h02,
 		MAIN_DELAY_WRAPUP	= 8'h03,
 		MAIN_AES_RESET		= 8'h04,
-		MAIN_AES_SET_KEY	= 8'h05,
-		MAIN_AES_SET_PT		= 8'h06,
-		MAIN_AES_ENCRYPT	= 8'h07,
-		MAIN_AES_WAIT		= 8'h08,
-		MAIN_PT_SEND		= 8'h09,
-		MAIN_PT_WAIT		= 8'h0A,
-		MAIN_KEY_SEND		= 8'h0B,
-		MAIN_KEY_WAIT		= 8'h0C,
-		MAIN_CT_SEND		= 8'h0D,
-		MAIN_CT_WAIT		= 8'h0E,
-		MAIN_SEN_SEND		= 8'h0F,
-		MAIN_SEN_WAIT		= 8'h10,	
-		MAIN_SEN_DELAY		= 8'h11,	
-		MAIN_WRAPUP		= 8'h12;	
+		MAIN_AES_RESET1	= 8'h05,
+		MAIN_AES_SET_KEY	= 8'h06,
+		MAIN_AES_SET_PT	= 8'h07,
+		MAIN_AES_ENCRYPT	= 8'h08,
+		MAIN_AES_WAIT		= 8'h09,
+		MAIN_PT_SEND		= 8'h0A,
+		MAIN_PT_WAIT		= 8'h0B,
+		MAIN_PT_WAIT1		= 8'h0C,
+		MAIN_KEY_SEND		= 8'h0D,
+		MAIN_KEY_WAIT		= 8'h0E,
+		MAIN_KEY_WAIT1		= 8'h0F,
+		MAIN_CT_SEND		= 8'hA0,
+		MAIN_CT_WAIT		= 8'hA1,
+		MAIN_CT_WAIT1		= 8'hA2,
+		MAIN_SEN_SEND		= 8'hA3,
+		MAIN_SEN_WAIT		= 8'hA4,	
+		MAIN_SEN_WAIT1		= 8'hA5,	
+		MAIN_SEN_DELAY		= 8'hA6,	
+		MAIN_WRAPUP			= 8'hA7;	
 		
 
 always @(posedge clk1) begin
 		
-		if (fsm==0) begin
+		if (MAIN_FSM==MAIN_RESET) begin
 		     
 			  if(RXdata==250)  begin
-				  fsm <=1;
+				  MAIN_FSM <=MAIN_AES_RESET	;
 				  inc <=1;
 				  encCounter 	<= encCounter + 1;
 			  end
 			  else if(RXdata >=0 & RXdata <= 31) begin
-				  fsm <=1;
+				  MAIN_FSM <=MAIN_AES_RESET	;
 				  inc <=0;
 				  delay <= RXdata;
 				  adjust <= RXdata + 1;
@@ -288,7 +233,7 @@ always @(posedge clk1) begin
 			  
 			  adjEN <=0;
 		end
-		else if (fsm==1) begin
+		else if (MAIN_FSM==MAIN_AES_RESET) begin
 			//Kin <=128'h0;
 			//Din <=128'h0;
 			busy   <=1;			
@@ -301,11 +246,11 @@ always @(posedge clk1) begin
 			counter1<= counter1+1;
 			R  <=0;
 			CE <=0;
-			fsm <=2;
 			adj <=1;
-	
+			
+			MAIN_FSM <=MAIN_AES_RESET1;
 		end
-		else if (fsm==2) begin
+		else if (MAIN_FSM==MAIN_AES_RESET1) begin
 			
 			AESResetn  <=1;
 			R<=1;
@@ -313,25 +258,22 @@ always @(posedge clk1) begin
 				delay <= delay +1;
 				adjust <= delay +1;
 			end
-			//	adj	<=0;
-			//end
-			fsm <=3;
-					//counter1 <=0;
-				//end
+
+			MAIN_FSM <= MAIN_AES_SET_KEY;
 		end
-		else if (fsm==3 ) begin
-			EN		<=1;
-			Krdy <=1;
-			Kin  <=128'h000102030405060708090a0b0c0d0ef0;
-			fsm<=4;
+		else if (MAIN_FSM==MAIN_AES_SET_KEY) begin
+			EN		<=1;	 // Enable AES circuit
+			Krdy <=1;	// set key is ready
+			Kin  <=128'h000102030405060708090a0b0c0d0ef0;  // this is AES key and it is hard corded.
+			
+			MAIN_FSM <= MAIN_AES_SET_PT;
 					
 		end
 	
-		else if (fsm==4 ) begin
+		else if (MAIN_FSM==MAIN_AES_SET_PT) begin
 		
 			Din <= {Cdelay, 00000, encCounter , Dout[111:0]};//128'h0000ffff0000ffff0000ffff0000ffff;					
 			Krdy <=0;
-			fsm<= 5;
 			R <=1;
 				dataKey[0] <= Kin[127:120];
 				dataKey[1] <= Kin[119:112];
@@ -349,9 +291,11 @@ always @(posedge clk1) begin
 				dataKey[13] <= Kin[23:16];
 				dataKey[14] <= Kin[15:8];
 				dataKey[15] <= Kin[7:0];
+				
+				MAIN_FSM <= MAIN_AES_ENCRYPT;
 		end
 		
-		else if (fsm==5) begin
+		else if (MAIN_FSM==MAIN_AES_ENCRYPT) begin
 			   dataIn[0] <= Din[127:120];
 				dataIn[1] <= Din[119:112];
 				dataIn[2] <= Din[111:104];
@@ -371,16 +315,17 @@ always @(posedge clk1) begin
 			R 	<=0;
 			Drdy <=1;
 			CE   <=1;
-			fsm<= 6;
 			addr1 <= 0;
+			
+			MAIN_FSM<= MAIN_AES_WAIT;
 		end
 		
-		else if(fsm==6) begin  // key rdy
+		else if(MAIN_FSM==MAIN_AES_WAIT) begin  // key rdy
 			Drdy <=0;
 			//transmitReg <=1;
 			//data1[addr1] <= 9;
 			addr1 <= addr1+1;
-			if(Dvld==1) begin
+			if(Dvld==1) begin   // when DVLD is 1, AES is finished Dout will have ciphertext
 				dataCt[0] <= Dout[127:120];
 				dataCt[1] <= Dout[119:112];
 				dataCt[2] <= Dout[111:104];
@@ -399,114 +344,127 @@ always @(posedge clk1) begin
 				dataCt[15] <= Dout[7:0];
 				CE   <=0;
 			end
-			if(addr1==1023) begin
-				fsm<=7;
+			if(addr1==1023) begin   // we wait 1024 clock cycles, we also wait for DVLD signal or AES done signal and goto next state
 				addr1 <= 0;
 				counter1 <=0;
+				
+				MAIN_FSM <= MAIN_PT_SEND;
 			end
 		end
 		
-		else if(fsm==7) begin
+		else if(MAIN_FSM==MAIN_PT_SEND) begin
 			busy   <=0;
 			transmitReg <=1;
-			fsm<=8;
 			TXdata<=dataIn[addr1];
 			addr1 <= addr1+1;
-		end
-	else if(fsm==8) begin  // key rdy
-			transmitReg <=0;
-			fsm<=9;
-		
-		end
-		
-	else if(fsm==9 & TXDone==1) begin  // key rdy
 			
+			MAIN_FSM <= MAIN_PT_WAIT;
+		end
+	else if(MAIN_FSM==MAIN_PT_WAIT) begin  // key rdy
+			transmitReg <=0;
+			
+			if (TXDone==1)
+				MAIN_FSM<=MAIN_PT_WAIT1;
+		
+		end
+		
+	else if(MAIN_FSM==MAIN_PT_WAIT1) begin  // key rdy
 			if(addr1==16) begin
-				fsm<=11;
 				addr1 <=0;
+				MAIN_FSM<=MAIN_KEY_SEND;
 				end
 			else
-				fsm<=7;
+				MAIN_FSM<=MAIN_PT_SEND;
 		
 		end
-		else if(fsm==11) begin 
+		else if(MAIN_FSM==MAIN_KEY_SEND) begin 
 			transmitReg <=1;
-			fsm<=12;
 			TXdata<=dataKey[addr1];
 			addr1 <= addr1+1;
+			
+			MAIN_FSM<=MAIN_KEY_WAIT;
 		end
-	  else if(fsm==12) begin  // key rdy
+	  else if(MAIN_FSM==MAIN_KEY_WAIT) begin  // key rdy
 			transmitReg <=0;
-			fsm<=13;
-		
+			
+			MAIN_FSM<=MAIN_KEY_WAIT1;
 		end
 		
-		else if(fsm==13 & TXDone==1) begin  // key rdy
+		else if(MAIN_FSM==MAIN_KEY_WAIT1 & TXDone==1) begin  // key rdy
 			
 			if(addr1==16) begin
-				fsm<=14;
 				addr1 <=0;
+				
+				MAIN_FSM<=MAIN_CT_SEND;
 				end
 			else
-				fsm<=11;
-		
+			
+				MAIN_FSM<=MAIN_KEY_SEND;
 		end
 	
 	
-		else if(fsm==14) begin 
+		else if(MAIN_FSM==MAIN_CT_SEND) begin 
 			transmitReg <=1;
-			fsm<=15;
 			TXdata<=dataCt[addr1];
 			addr1 <= addr1+1;
+			
+			MAIN_FSM<=MAIN_CT_WAIT;
 		end
-	else if(fsm==15) begin  // key rdy
+	else if(MAIN_FSM==MAIN_CT_WAIT) begin  // key rdy
 			transmitReg <=0;
-			fsm<=16;
 		   count <= 0;
+
+			MAIN_FSM <= MAIN_CT_WAIT1;
 		end
 		
-		else if(fsm==16 & TXDone==1) begin  // key rdy
+		else if(MAIN_FSM==MAIN_CT_WAIT1 & TXDone==1) begin  // key rdy
 			
 			if(addr1==16) begin
-				fsm<=20;
 				addr1 <=0;
+				
+				MAIN_FSM<=MAIN_SEN_SEND;
 			end
 			else  begin
-				fsm<=14;
+			
+				MAIN_FSM <= MAIN_CT_SEND;
 			end	
 		end
-		else if(fsm==20) begin  // key rdy
+		else if(MAIN_FSM==MAIN_SEN_SEND) begin  // key rdy
 			transmitReg <=1;
-			fsm<=21;
-				TXdata<=data2[addr1];
-		end
-		else if(fsm==21) begin  // key rdy
-			transmitReg <=0;
-			fsm<=22;
-		
-		end
-		
-		else if(fsm==22 & TXDone==1) begin  // key rdy
+			TXdata<=data2[addr1];
 			
-			if(addr1==2047) begin
-				fsm<=23;
+			MAIN_FSM <= MAIN_SEN_WAIT;
+		end
+		else if(MAIN_FSM==MAIN_SEN_WAIT) begin  // key rdy
+			transmitReg <=0;
+			
+			MAIN_FSM <= MAIN_SEN_WAIT1;
+		end
+		
+		else if(MAIN_FSM==MAIN_SEN_WAIT1 & TXDone==1) begin  // key rdy
+			
+			if(addr1==SAMPLESTOTRANSFER-1) begin
 				counter1 <=0;
 				addr1 <=0;
+				
+				MAIN_FSM<=MAIN_SEN_DELAY;
 			end
 			else begin
-				fsm<=20;
 				addr1 <= addr1+1;
+				
+				MAIN_FSM<=MAIN_SEN_SEND;
 		   end
 		end
 		
 		
-		else if (fsm==23) begin
+		else if (MAIN_FSM==MAIN_SEN_DELAY) begin
 		
 				counter1<= counter1+1;
 				if(counter1[12]==1) begin
-				   fsm <=0;
 					counter1<=0;
 					adjEN   <=1;
+					
+					MAIN_FSM <=MAIN_RESET;
 				end
 		end
 	
