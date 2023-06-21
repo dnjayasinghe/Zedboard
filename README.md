@@ -16,3 +16,5 @@ This repository implemented On-Chip Sensor attacks on Digilent Zedboard.
 
 
 ## UART Connections
+The UART connections are shown in the image below.
+![IMG_0184](https://github.com/dnjayasinghe/Zedboard/assets/29743044/33189094-4b64-4cb7-a52b-4d4f14cf856d)
