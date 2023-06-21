@@ -29,7 +29,7 @@ module top(
     );
 
 parameter CounterSize=31;
-parameter SAMPLESTOCOLLECT=512;
+parameter SAMPLESTOCOLLECT=1024;
 
 
 
@@ -117,7 +117,7 @@ reg	[ADSIZE-1:0] adjust;
 
 
 
-//tdc_top tp (clk0, clk0, out);					// TDC sensor
+tdc_top tp (clk0, clk0, out);					// TDC sensor
 tdc_decode tdc_decode(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg), .coded_o(processedOut));   // calculate number of 1's in the TDC Sensor
 
 
@@ -230,12 +230,12 @@ always @(posedge clk1) begin	// Main FSM which also control AES  and data transm
 		
 		if (MAIN_FSM==MAIN_RESET) begin
 		     
-			  if(RXdata==250)  begin				// you dont need to worry about these values they are from PC -> FPGA parameters
+			  if(rxReady ==1 && RXdata==250)  begin				// you dont need to worry about these values they are from PC -> FPGA parameters
 				  MAIN_FSM <=MAIN_AES_RESET;
 				  inc <=1;
 				  encCounter 	<= encCounter + 1;
 			  end
-			  else if(RXdata >=0 & RXdata <= 31) begin
+			  else if(rxReady ==1 && (RXdata >= 0 & RXdata <= 31)) begin
 				  MAIN_FSM <=MAIN_AES_RESET;
 				  inc <=0;
 				  delay <= RXdata;
