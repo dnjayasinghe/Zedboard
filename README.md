@@ -5,6 +5,7 @@ This repository implemented On-Chip Sensor attacks on Digilent Zedboard.
 
 ## Hardware Requirements
 [1]. Zedboard
+
 [2]. FTDI USB to UART converter
 
 
