@@ -11,7 +11,7 @@ namespace ZynqRO_UART_Checker
 {
     class Program
     {
-        static int samplingPoints =512;        // number of samples points to be read from FPGA (only onchip sensor readings) pt , key and ct are handled separately.
+        static int samplingPoints =1024;        // number of samples points to be read from FPGA (only onchip sensor readings) pt , key and ct are handled separately.
         static int NumROs =1;                   // not used, only need for RO -voltage sensors
 
         static UInt32 write(FTDI ftdi, byte[] data, int numChars)
