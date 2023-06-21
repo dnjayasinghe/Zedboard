@@ -117,7 +117,7 @@ reg	[ADSIZE-1:0] adjust;
 
 
 
-//tdc_top tp (clk0, clk0, out);					// TDC sensor
+tdc_top tp (clk0, clk0, out);					// TDC sensor
 tdc_decode tdc_decode(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg), .coded_o(processedOut));   // calculate number of 1's in the TDC Sensor
 
 
