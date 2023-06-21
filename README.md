@@ -1,6 +1,6 @@
-# Zedboard
+# On-chip Sensor Attacks on Digilent Zedboard
 
-This repository implemented On-Chip Sensor attacks on Digilent Zedboard. 
+This repository implemented On-Chip Sensor attacks on Digilent Zedboard. Currently Supports TDC sensor-based On-Chip Sensor attacks. 
 
 
 ## Hardware Requirements
