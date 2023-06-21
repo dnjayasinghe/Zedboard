@@ -483,3 +483,4 @@ _xmsgs/
 # custom files
 *.data
 data*.txt
+key*.txt
