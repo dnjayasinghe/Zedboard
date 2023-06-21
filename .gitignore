@@ -482,4 +482,4 @@ _xmsgs/
 
 # custom files
 *.data
-*.txt
+data*.txt
