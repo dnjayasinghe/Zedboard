@@ -52,7 +52,7 @@ wire clk0t, clk1t, clk5t, clk2t, clk3t, clk4t;
 		.CLKOUT4_DIVIDE(3),
 		.CLKOUT5_DIVIDE(10),
 		.CLKOUT6_DIVIDE(1),
-		.CLKOUT0_DIVIDE_F(3), // Divide amount for CLKOUT0 (1.000-128.000).
+		.CLKOUT0_DIVIDE_F(10), // Divide amount for CLKOUT0 (1.000-128.000).
 		// CLKOUT0_DUTY_CYCLE - CLKOUT6_DUTY_CYCLE: Duty cycle for each CLKOUT (0.01-0.99).
 		.CLKOUT0_DUTY_CYCLE(0.5),
 		.CLKOUT1_DUTY_CYCLE(0.5),

@@ -24,13 +24,13 @@ module top(
 	//input 	rstn,
 	output [2:0]led,
 	output 	tx,
-	output PWR,
-	output HB
+	output PWR,  // not used
+	output HB    // not used
     );
 
 parameter CounterSize=31;
-parameter SAMPLESTOCOLLECT=2048;
-parameter SAMPLESTOTRANSFER=2048;
+parameter SAMPLESTOCOLLECT=512;
+
 
 
 reg [9:0] counter;
@@ -45,14 +45,17 @@ wire [35:0] control0;
 ///   FSMs				  ///
 /////////////////////////
 
+
 reg  [9:0] MAIN_FSM=0;
 reg  [9:0] SEN_FSM=0;
+reg  [9:0] fsm1=0;
 
 
 //////////////////////////
 ///   Regs and Wires  ///
 /////////////////////////
 
+// AES signals and regs
 reg  [127:0] Kin, Din;
 wire [127:0] Dout;
 reg Krdy, Drdy, EncDec, RSTn, EN;
@@ -60,17 +63,20 @@ wire Kvld, Dvld, BSY;
 
 reg CE, C, R, inc;
 wire [9:0] Q;
+
+// UART signal and regs
 reg  [7:0] TXdata;
 wire  [7:0] RXdata;
 
-reg [7:0] data1   [2047:0]; 
+// Sample memory for onchip sensor readings
 reg [7:0] data2   [SAMPLESTOCOLLECT-1:0]; 
+
 
 reg [7:0] dataCt   [15:0]; 
 reg [7:0] dataIn   [15:0]; 
 reg [7:0] dataKey   [15:0]; 
-reg [10:0] addr1;
-reg [10:0] addr2;
+reg [15:0] addr1;
+reg [15:0] addr2;
 reg [2:0] encCounter;
 reg [9:0] total, total_old;
 reg [7:0] senData  [3:0]; 
@@ -102,7 +108,6 @@ uart_rx uartRX(.i_Clock(clk1), .i_Rx_Serial(rx), .o_Rx_DV(rxReady), .o_Rx_Byte(R
 ///   On-chip Sensor   ///
 /////////////////////////
 parameter regsize =511;
-parameter AES_COUNT = 3;
 parameter ADSIZE=160;
 
 wire 	[ADSIZE-1:0] out;		
@@ -110,18 +115,22 @@ reg 	[ADSIZE-1:0] outReg;
 wire	[7:0] processedOut;
 reg	[ADSIZE-1:0] adjust;
 
-//tdc_top tp (clk0, out);
-tdc_decode tdc_decode(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg), .coded_o(processedOut)); 
+
+
+//tdc_top tp (clk0, clk0, out);					// TDC sensor
+tdc_decode tdc_decode(.clk(clk0), .rst(AESResetn), .chainvalue_i(outReg), .coded_o(processedOut));   // calculate number of 1's in the TDC Sensor
 
 
 
 //////////////////////////
 ///   AES LOOP        ///
 /////////////////////////
+parameter AES_COUNT = 3;
+
 wire [127:0] DoutTemp [AES_COUNT-1:0] ;
 wire  [AES_COUNT-1:0] DvldTemp;
 
-assign Dout = DoutTemp[0] &  DoutTemp[1] &  DoutTemp[2];
+assign Dout = DoutTemp[0] &  DoutTemp[1] &  DoutTemp[2];   // this line we manually need to change ; I will modify this duing next version
 assign Dvld = &DvldTemp;
 
 
@@ -143,52 +152,55 @@ end
 ///////////////////////////////////
 ///  Sample Onchip sensor FSM   ///
 ///////////////////////////////////
-localparam 	SEN_RESET 	= 8'h00,
+localparam 	SEN_RESET 	= 8'h00,  //  states of the onchip Sensor FSM
 		SEN_WAIT  	= 8'h01,
 		SEN_CAPTURE	= 8'h02,
 		SEN_WRAP_UP	= 8'h03;
 
-always @(posedge clk0) begin
+always @(posedge clk0) begin		// onchip sensor values samples FSM, clock0 >>>> clock1
    
 	if(SEN_FSM==SEN_RESET) begin
+		addr2 			<= 0;
+		
 		SEN_FSM 		<=SEN_WAIT;	
-	
 	end
 	else if(SEN_FSM==SEN_WAIT) begin
-		   data2[addr2] 	<= 250;//processedOut;
+		   data2[addr2] 	<= 250;//processedOut;		// we just want to put a flag to detect start of AES; // remove this later
 			outReg 			<= out;
 			addr2 			<= 0;
-			if(Drdy ==1)
+			if(Drdy ==1) begin
+			
 				SEN_FSM  	<=SEN_CAPTURE;	
-			
-	end
-	else if(SEN_FSM==SEN_CAPTURE) begin
-	      outReg 			<= addr2;// out;    
-			addr2 			<= addr2 +1;
-			
-			//if(Dvld==1) begin
-			//	data2[addr2] <= 255;
-			//end
-			//else begin
-				data2[addr2] <=  processedOut;
-			//end 
-			
-			if(addr2==SAMPLESTOCOLLECT-1) begin
-				SEN_FSM	<=  SEN_WRAP_UP;
-					
 			end
 	end
-	else if(SEN_FSM==SEN_WRAP_UP) begin
+	else if(SEN_FSM==SEN_CAPTURE) begin
+	      outReg 			<= out;    
+			addr2 			<= addr2 +1;
+			
+			if(Dvld==1) begin   // when ct is ready, we want to indicate it in the onchip sensor trace -- normally there is a clock cycle delay so if we dont capture 
+									// last clock cycle's voltage flucations we are safe.
+				data2[addr2] <= 255;
+			end
+			else begin
+				data2[addr2] <=  processedOut;				// sample and save TDC sensor's data
+			end 
+			
+			if(addr2==SAMPLESTOCOLLECT-1) begin 			// once required number of samples are collected we can wait to capture next AES encryption.
+			
+				SEN_FSM	<=  SEN_WRAP_UP;	
+			end
+	end
+	else if(SEN_FSM==SEN_WRAP_UP) begin					// we do nuthing, clear the addr and move to WAIT state
 			addr2 <=0;
+			
 			SEN_FSM <= SEN_WAIT;
 	end
 end
 
-
 /////////////////////////////
 ///  AES and Main FSM 	  ///
 /////////////////////////////
-localparam	MAIN_RESET	= 8'h00,
+localparam	MAIN_RESET	= 8'h00,	// main FSM states
 		MAIN_DELAY_WAIT	= 8'h01,
 		MAIN_DELAY_SET		= 8'h02,
 		MAIN_DELAY_WRAPUP	= 8'h03,
@@ -214,17 +226,17 @@ localparam	MAIN_RESET	= 8'h00,
 		MAIN_WRAPUP			= 8'hA7;	
 		
 
-always @(posedge clk1) begin
+always @(posedge clk1) begin	// Main FSM which also control AES  and data transmit
 		
 		if (MAIN_FSM==MAIN_RESET) begin
 		     
-			  if(RXdata==250)  begin
-				  MAIN_FSM <=MAIN_AES_RESET	;
+			  if(RXdata==250)  begin				// you dont need to worry about these values they are from PC -> FPGA parameters
+				  MAIN_FSM <=MAIN_AES_RESET;
 				  inc <=1;
 				  encCounter 	<= encCounter + 1;
 			  end
 			  else if(RXdata >=0 & RXdata <= 31) begin
-				  MAIN_FSM <=MAIN_AES_RESET	;
+				  MAIN_FSM <=MAIN_AES_RESET;
 				  inc <=0;
 				  delay <= RXdata;
 				  adjust <= RXdata + 1;
@@ -233,9 +245,7 @@ always @(posedge clk1) begin
 			  
 			  adjEN <=0;
 		end
-		else if (MAIN_FSM==MAIN_AES_RESET) begin
-			//Kin <=128'h0;
-			//Din <=128'h0;
+		else if (MAIN_FSM==MAIN_AES_RESET) begin			// AES circuit signals init and AES circuit reset - active low
 			busy   <=1;			
 			EncDec <=counter1[24];
 			EN <=0;
@@ -272,7 +282,7 @@ always @(posedge clk1) begin
 	
 		else if (MAIN_FSM==MAIN_AES_SET_PT) begin
 		
-			Din <= {Cdelay, 00000, encCounter , Dout[111:0]};//128'h0000ffff0000ffff0000ffff0000ffff;					
+			Din <= {Cdelay, 00000, encCounter , Dout[111:0]};	//	we use ciphertext of previous encryption as the pt of the this encryption + some counter values.
 			Krdy <=0;
 			R <=1;
 				dataKey[0] <= Kin[127:120];
@@ -320,7 +330,7 @@ always @(posedge clk1) begin
 			MAIN_FSM<= MAIN_AES_WAIT;
 		end
 		
-		else if(MAIN_FSM==MAIN_AES_WAIT) begin  // key rdy
+		else if(MAIN_FSM==MAIN_AES_WAIT) begin  
 			Drdy <=0;
 			//transmitReg <=1;
 			//data1[addr1] <= 9;
@@ -352,15 +362,15 @@ always @(posedge clk1) begin
 			end
 		end
 		
-		else if(MAIN_FSM==MAIN_PT_SEND) begin
+		else if(MAIN_FSM==MAIN_PT_SEND) begin  // PT transmission from FPGA to PC. We have 3 arrays dataIn, dataKey and dataCt
 			busy   <=0;
 			transmitReg <=1;
-			TXdata<=dataIn[addr1];
+			TXdata<=dataIn[addr1];  	// read ith value in plaintext
 			addr1 <= addr1+1;
 			
 			MAIN_FSM <= MAIN_PT_WAIT;
 		end
-	else if(MAIN_FSM==MAIN_PT_WAIT) begin  // key rdy
+	else if(MAIN_FSM==MAIN_PT_WAIT) begin  
 			transmitReg <=0;
 			
 			if (TXDone==1)
@@ -368,7 +378,7 @@ always @(posedge clk1) begin
 		
 		end
 		
-	else if(MAIN_FSM==MAIN_PT_WAIT1) begin  // key rdy
+	else if(MAIN_FSM==MAIN_PT_WAIT1) begin  
 			if(addr1==16) begin
 				addr1 <=0;
 				MAIN_FSM<=MAIN_KEY_SEND;
@@ -379,18 +389,19 @@ always @(posedge clk1) begin
 		end
 		else if(MAIN_FSM==MAIN_KEY_SEND) begin 
 			transmitReg <=1;
-			TXdata<=dataKey[addr1];
+			TXdata<=dataKey[addr1]; // read ith value in key
 			addr1 <= addr1+1;
 			
 			MAIN_FSM<=MAIN_KEY_WAIT;
 		end
-	  else if(MAIN_FSM==MAIN_KEY_WAIT) begin  // key rdy
+	  else if(MAIN_FSM==MAIN_KEY_WAIT) begin  
 			transmitReg <=0;
 			
-			MAIN_FSM<=MAIN_KEY_WAIT1;
+			if (TXDone==1)
+				MAIN_FSM<=MAIN_KEY_WAIT1;
 		end
 		
-		else if(MAIN_FSM==MAIN_KEY_WAIT1 & TXDone==1) begin  // key rdy
+		else if(MAIN_FSM==MAIN_KEY_WAIT1) begin  
 			
 			if(addr1==16) begin
 				addr1 <=0;
@@ -402,22 +413,23 @@ always @(posedge clk1) begin
 				MAIN_FSM<=MAIN_KEY_SEND;
 		end
 	
-	
 		else if(MAIN_FSM==MAIN_CT_SEND) begin 
 			transmitReg <=1;
-			TXdata<=dataCt[addr1];
+			TXdata<=dataCt[addr1]; 		// read ith value in ciphertext
 			addr1 <= addr1+1;
 			
 			MAIN_FSM<=MAIN_CT_WAIT;
 		end
-	else if(MAIN_FSM==MAIN_CT_WAIT) begin  // key rdy
+		
+	else if(MAIN_FSM==MAIN_CT_WAIT) begin  
 			transmitReg <=0;
 		   count <= 0;
-
-			MAIN_FSM <= MAIN_CT_WAIT1;
+			
+			if (TXDone==1)
+				MAIN_FSM <= MAIN_CT_WAIT1;
 		end
 		
-		else if(MAIN_FSM==MAIN_CT_WAIT1 & TXDone==1) begin  // key rdy
+		else if(MAIN_FSM==MAIN_CT_WAIT1) begin  
 			
 			if(addr1==16) begin
 				addr1 <=0;
@@ -429,21 +441,22 @@ always @(posedge clk1) begin
 				MAIN_FSM <= MAIN_CT_SEND;
 			end	
 		end
-		else if(MAIN_FSM==MAIN_SEN_SEND) begin  // key rdy
+		else if(MAIN_FSM==MAIN_SEN_SEND) begin  
 			transmitReg <=1;
-			TXdata<=addr1;//data2[addr1];
+			TXdata<=data2[addr1];  // sensor memory
 			
 			MAIN_FSM <= MAIN_SEN_WAIT;
 		end
-		else if(MAIN_FSM==MAIN_SEN_WAIT) begin  // key rdy
+		else if(MAIN_FSM==MAIN_SEN_WAIT) begin  
 			transmitReg <=0;
 			
-			MAIN_FSM <= MAIN_SEN_WAIT1;
+			if (TXDone==1)
+				MAIN_FSM <= MAIN_SEN_WAIT1;
 		end
 		
-		else if(MAIN_FSM==MAIN_SEN_WAIT1 & TXDone==1) begin  // key rdy
+		else if(MAIN_FSM==MAIN_SEN_WAIT1) begin  
 			
-			if(addr1==SAMPLESTOTRANSFER-1) begin
+			if(addr1==SAMPLESTOCOLLECT-1) begin 
 				counter1 <=0;
 				addr1 <=0;
 				
@@ -460,7 +473,7 @@ always @(posedge clk1) begin
 		else if (MAIN_FSM==MAIN_SEN_DELAY) begin
 		
 				counter1<= counter1+1;
-				if(counter1[12]==1) begin
+				if(counter1[12]==1) begin // we just wait until 2^^12 clock cycles before starting the next iteration. We probably can remove this. This is just let PDN fill power again
 					counter1<=0;
 					adjEN   <=1;
 					
