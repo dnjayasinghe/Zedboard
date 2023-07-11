@@ -7,6 +7,8 @@ using FTD2XX_NET;
 using System.IO;
 using System.Diagnostics;
 
+
+
 namespace ZynqRO_UART_Checker
 {
     class Program
@@ -162,9 +164,9 @@ namespace ZynqRO_UART_Checker
                     readProcessed[j] = 0;
 
                 System.Threading.Thread.Sleep(100);  // reduce this delay to match the max speed of your laptop/ pc
-
-                // write parameters to FPGA 
                 write(ftdi, writeData, writeData.Length);
+                // write parameters to FPGA 
+             //   write(ftdi, writeData, writeData.Length);
 
                 // read pt key and ct
                read(ftdi, readArrayIn, 16);
